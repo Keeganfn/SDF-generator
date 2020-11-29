@@ -1,4 +1,4 @@
-# sdf-generator
+# SDF-generator
 Generates a signed distance field over the volume of a cube for a .obj mesh file using trimesh. Intended for use in the hand simulator collisions and distance querys.
 
 
