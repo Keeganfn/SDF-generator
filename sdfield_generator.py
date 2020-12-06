@@ -71,7 +71,7 @@ class SDF_Generator:
         return sdf_points
         
     #uses trilinear interpolation to interpolate sdf value from given point
-    def get_closest_sdf_points(self, given_point):
+    def interpolate_sdf_from_point(self, given_point):
         x_given = given_point[0]
         y_given = given_point[1] 
         z_given = given_point[2] 
@@ -82,8 +82,11 @@ class SDF_Generator:
         z_sdf = int(abs(np.floor((z_given - self.sdf_origin[2]) / self.sdf_point_spacing)))
         
         #if outside the bounds of our sdf we return -1
-        if x_sdf >= self.resolution or y_sdf >= self.resolution or y_sdf >= self.resolution:
+        if x_sdf >= self.resolution-1 or y_sdf >= self.resolution-1 or z_sdf >= self.resolution-1:
             return -1
+        if x_sdf <= 0 or y_sdf <= 0 or z_sdf <= 0:
+            return -1
+
 
         #used equation and format from wikipedia article on trilinear interpolation if you wish to look at the math
         x_distance = (x_given - (x_sdf*self.sdf_point_spacing + self.sdf_origin[0])) / (((x_sdf+1)*self.sdf_point_spacing + self.sdf_origin[0]) - (x_sdf*self.sdf_point_spacing + self.sdf_origin[0]))
