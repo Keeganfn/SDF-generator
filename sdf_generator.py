@@ -1,5 +1,6 @@
 import trimesh
 import numpy as np
+from scipy.interpolate import RegularGridInterpolator
 
 import pyrender
 
@@ -10,7 +11,10 @@ class SDF_Generator:
 
         self.resolution = resolution 
         self.padding = padding
-        
+        self.sdf_point_spacing = 0
+        self.sdf_array = np.zeros((self.resolution,self.resolution,self.resolution))
+        self.sdf_origin = []
+
         #loads mesh and centers the middle of the mesh on the origin 0,0,0
         self.mesh = trimesh.load(object_mesh_path)
         centering = trimesh.bounds.oriented_bounds(self.mesh, angle_digits=1, ordered=True, normal=None)
@@ -18,33 +22,34 @@ class SDF_Generator:
 
     def get_sdf_array(self):
         #gets origin, dimension of sdf, the points and the spacing of the points 
-        sdf_origin, sdf_dimensions = self.get_sdf_dimensions(self.padding)
-        sdf_points, sdf_point_spacing = self.get_points(sdf_origin)
+        self.sdf_origin, sdf_dimensions = self.get_sdf_dimensions(self.padding)
+        sdf_points = self.get_points(self.sdf_origin)
 
         #makes the sdf call on the points list and creates empty 3D array for final distances
         query = trimesh.proximity.ProximityQuery(self.mesh)
         distances = query.signed_distance(sdf_points)
-        formatted_distances = np.zeros((self.resolution,self.resolution,self.resolution))
 
         #formats distances from 1D to 3D array as well as changing the sign
         count = 0 
         for i in range(self.resolution):
             for j in range(self.resolution):
                 for k in range(self.resolution):
-                    formatted_distances[k][j][i] = -distances[count]
+                    self.sdf_array[k][j][i] = -distances[count]
                     count+=1
 
-        return formatted_distances, sdf_origin, sdf_point_spacing
+        return self.sdf_array, self.sdf_origin, self.sdf_point_spacing, self.resolution
 
 
     #returns origin point of the sdf as well as the dimensions of our sdf
     def get_sdf_dimensions(self, largest_dimension_padding):
+
        #find largest dimension of mesh and add padding
        mesh_extents = self.mesh.extents
        sdf_length = np.max(mesh_extents) + largest_dimension_padding*2
        #return the origin point of the sdf which will be in the bottom corner as well as our sdf dimensions
        sdf_origin = [-sdf_length/2, -sdf_length/2, -sdf_length/2]
        sdf_dimensions = [sdf_length, sdf_length, sdf_length]
+       print(self.mesh.bounds)
 
        return sdf_origin, sdf_dimensions
        
@@ -55,57 +60,57 @@ class SDF_Generator:
         z = np.linspace(sdf_origin[1], abs(sdf_origin[1]), num=self.resolution, retstep=True)
         
         sdf_points = []
-        sdf_point_spacing = x[1]
-        
+        self.sdf_point_spacing = x[1]
+
         #creates points from the linspace calculations
         for i in z[0]:
             for j in y[0]:
                 for k in x[0]:
                     sdf_points.append([k,j,i])
 
-        return sdf_points, sdf_point_spacing 
+        return sdf_points
         
+    #uses trilinear interpolation to interpolate sdf value from given point
+    def get_closest_sdf_points(self, given_point):
+        x_given = given_point[0]
+        y_given = given_point[1] 
+        z_given = given_point[2] 
+
+        #finding corresponding closest array index in sdf_array for given point
+        x_sdf = int(abs(np.floor((x_given - self.sdf_origin[0]) / self.sdf_point_spacing)))
+        y_sdf = int(abs(np.floor((y_given - self.sdf_origin[1]) / self.sdf_point_spacing)))
+        z_sdf = int(abs(np.floor((z_given - self.sdf_origin[2]) / self.sdf_point_spacing)))
         
+        #if outside the bounds of our sdf we return -1
+        if x_sdf >= self.resolution or y_sdf >= self.resolution or y_sdf >= self.resolution:
+            return -1
+
+        #used equation and format from wikipedia article on trilinear interpolation if you wish to look at the math
+        x_distance = (x_given - (x_sdf*self.sdf_point_spacing + self.sdf_origin[0])) / (((x_sdf+1)*self.sdf_point_spacing + self.sdf_origin[0]) - (x_sdf*self.sdf_point_spacing + self.sdf_origin[0]))
+        y_distance = (y_given - (y_sdf*self.sdf_point_spacing + self.sdf_origin[1])) / (((y_sdf+1)*self.sdf_point_spacing + self.sdf_origin[1]) - (y_sdf*self.sdf_point_spacing + self.sdf_origin[1]))
+        z_distance = (z_given - (z_sdf*self.sdf_point_spacing + self.sdf_origin[2])) / (((z_sdf+1)*self.sdf_point_spacing + self.sdf_origin[2]) - (z_sdf*self.sdf_point_spacing + self.sdf_origin[2]))
+
+        #finds 8 surrounding values
+        C000 = self.sdf_array[x_sdf][y_sdf][z_sdf]
+        C100 = self.sdf_array[x_sdf+1][y_sdf][z_sdf]
+        C010 = self.sdf_array[x_sdf][y_sdf+1][z_sdf]
+        C001 = self.sdf_array[x_sdf][y_sdf][z_sdf+1]
+        C101 = self.sdf_array[x_sdf+1][y_sdf][z_sdf+1]
+        C110 = self.sdf_array[x_sdf+1][y_sdf+1][z_sdf]
+        C011 = self.sdf_array[x_sdf][y_sdf+1][z_sdf+1]
+        C111 = self.sdf_array[x_sdf+1][y_sdf+1][z_sdf+1]
+
+        #interpolation steps
+        C00 = C000*(1-x_distance) + (C100 * x_distance)
+        C01 = C001*(1-x_distance) + (C101 * x_distance)
+        C10 = C010*(1-x_distance) + (C110 * x_distance)
+        C11 = C011*(1-x_distance) + (C111 * x_distance)
+
+        C0 = C00*(1-y_distance) + (C10 * y_distance)
+        C1 = C01*(1-y_distance) + (C11 * y_distance)
+
+        C = C0*(1-z_distance) + (C1 * z_distance)
+
+        return C
 
 
-#if __name__ == "__main__":
-#    test = SDF_Generator('123/objFiles/Measuring_Block_collision.obj', 32, .02) 
-#    d, q, t = test.get_sdf_array()
-
-
-
-
-#    mesh = trimesh.load('123/objFiles/Measuring_Block_collision.obj')
-#centering = trimesh.bounds.oriented_bounds(mesh, angle_digits=1, ordered=True, normal=None)
-#mesh.apply_transform(centering[0])
-#print("info")
-#print(centering[1])
-#print(mesh.bounds)
-#print(mesh.center_mass)
-#print(mesh.extents)
-#print(mesh.scale)
-#print(mesh.units)
-
-#sdf_origin, sdf_dimensions = get_sdf_dimensions(mesh.extents, .02)
-#print(sdf_origin)
-#print(sdf_dimensions)
-
-#sdf_points, sdf_point_spacing = get_points(sdf_origin, 32)
-
-    #d = get_sdf_array(sdf_points, mesh)
-#    print(d[0][0][0])
-#    print(d[16][0][16])
-#    print(d[0][16][16])
-#    print(d[1][2][3])
-#print(trimesh.proximity.closest_point(mesh, [[-.06, -.06, -.06]]))
-#    array = []
-#
-#    array.append([-.06,-.06,-.06])
-#    array.append([.0019,-.06,.0019])
-#    array.append([-.06,.0019,.0019])
-#cloud = pyrender.Mesh.from_points(array)
-#mesh.visual.face_colors = [100, 100, 100, 100]
-#pointsss = trimesh.points.PointCloud(array)
-#scene = trimesh.Scene([pointsss, mesh])
-#(scene).show(smooth=False)
-#
