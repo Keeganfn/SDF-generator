@@ -3,4 +3,12 @@ Generates a signed distance field over the volume of a cube for a .obj mesh file
 
 
 TODO:
-Currently is set up as a class, need to add the ability to save the 3d SDF array to a file and a command line interface. Also need to adjust the way the extents are found as it could be an issue for irregular objects.
+Command line tool
+Fix loaded Pickle files not being able to be vizualized
+Change over to cpickle for better performance
+Documentation
+
+
+MAYBE:
+Restructure class to make a little more sense with pickle additions and clean things up
+Possibly change the way bounds are calculated need to test and see if weird behavior for strange meshes occur
