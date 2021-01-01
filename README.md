@@ -2,7 +2,7 @@
 Generates a signed distance field over the volume of a cube for a .obj mesh file using trimesh. Intended for use in the hand simulator collisions and distance querys. Also provides a trilinear interpolation function for a given point.
 
 
-TODO:
+#TODO:
 
 Command line tool
 
@@ -13,7 +13,7 @@ Change over to cpickle for better performance
 Documentation
 
 
-MAYBE:
+#MAYBE:
 
 Restructure class to make a little more sense with pickle additions and clean things up
 
