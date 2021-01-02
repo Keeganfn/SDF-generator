@@ -35,6 +35,7 @@ EX: ./demo_sdf.py 'obj_mesh/Measuring_Block.obj' 32 .02 'test.pickle'
 
 
 ## TODO:
+Add ability for user to set initial translation and rotation of mesh instead of auto setting it to center of mass
 
 Change over to cpickle for better performance
 
