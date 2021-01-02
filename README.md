@@ -17,6 +17,7 @@ pip3 install Rtree
 ## Usage:
 #### Generate an SDF
 * Look at the commented example.py to get a feel for basic functionality like generating the SDF, saving to a pickle file, loading from a pickle file, vizualization and interpolation.
+* Basic generation returns an NXNXN array of signed distances, the SDF origin, the spacing and the resolution.
 
 #### Use the built in script to generate an SDF pickle file
 * Use create_new_sdfield.py to generate/vizualize an SDF using command line with the format:
