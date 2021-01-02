@@ -5,6 +5,18 @@ Generates a signed distance field over the bounding box of a .obj mesh file usin
 Intended for use in hand simulator collision detections and distance querys. 
 
 
+### Dependencies:
+Requires trimesh, libspatialindex, Rtree and pyrender for full functionality.
+```
+pip3 install trimesh
+pip3 install pyrender
+sudo apt install libspatialindex-dev
+pip3 install Rtree
+```
+
+###
+
+
 ### TODO:
 
 Change over to cpickle for better performance
