@@ -184,7 +184,7 @@ class SDF_Generator:
                     point_colors[i] = [0,255,0,255]
 
             point_cloud = trimesh.points.PointCloud(self.sdf_points, point_colors)
-            #self.mesh.visual.face_colors = [100, 100, 100, 100]
+            self.mesh.visual.face_colors = [100, 100, 100, 100]
             scene = trimesh.Scene([point_cloud, self.mesh, user_point_cloud])
 
         #vizualizes sdf points only with respective colors
