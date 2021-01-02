@@ -1,9 +1,7 @@
 import trimesh
 import numpy as np
 import pickle
-from scipy.interpolate import RegularGridInterpolator
 
-import pyrender
 
 
 class SDF_Generator:
