@@ -1,40 +1,61 @@
 import trimesh
 import numpy as np
-from scipy.interpolate import RegularGridInterpolator
+import pickle
 
-import pyrender
 
 
 class SDF_Generator:
     
-    def __init__(self, object_mesh_path, resolution, padding):
+    def __init__(self, object_mesh_path, resolution = 32, padding = .05, file_name = None):
 
-        self.resolution = resolution 
-        self.padding = padding
-        self.sdf_point_spacing = 0
-        self.sdf_array = np.zeros((self.resolution,self.resolution,self.resolution))
-        self.sdf_origin = []
+        self.object_mesh_path = object_mesh_path
+        
+        #if file name is given then we load from pickle file
+        if(file_name != None):
+            sdf_file = open(file_name, "rb")
+            sdf_properties = pickle.load(sdf_file)
+
+            self.resolution = sdf_properties["resolution"]
+            self.padding = sdf_properties["padding"]
+            self.sdf_point_spacing = sdf_properties["sdf_point_spacing"]
+            self.sdf_array = sdf_properties["sdf_array"]
+            self.sdf_points = sdf_properties["sdf_points"]
+            self.sdf_origin = sdf_properties["sdf_origin"]
+
+        #otherwise initialize from parameters
+        else: 
+            self.resolution = resolution 
+            self.padding = padding
+            self.sdf_point_spacing = 0
+            self.sdf_array = np.zeros((self.resolution,self.resolution,self.resolution))
+            self.sdf_points = []
+            self.sdf_origin = []
 
         #loads mesh and centers the middle of the mesh on the origin 0,0,0
         self.mesh = trimesh.load(object_mesh_path)
         centering = trimesh.bounds.oriented_bounds(self.mesh, angle_digits=1, ordered=True, normal=None)
         self.mesh.apply_transform(centering[0])
 
-    def get_sdf_array(self):
+    #instead of recalculating just get properties
+    def get_sdf_properties(self):
+        return self.sdf_array, self.sdf_origin, self.sdf_point_spacing, self.resolution
+
+    #calculates sdf and returns all the relevant properties
+    def calculate_sdf_array(self):
         #gets origin, dimension of sdf, the points and the spacing of the points 
         self.sdf_origin, sdf_dimensions = self.get_sdf_dimensions(self.padding)
-        sdf_points = self.get_points(self.sdf_origin)
+        self.sdf_points = self.get_points(self.sdf_origin)
 
         #makes the sdf call on the points list and creates empty 3D array for final distances
         query = trimesh.proximity.ProximityQuery(self.mesh)
-        distances = query.signed_distance(sdf_points)
+        self.distances = query.signed_distance(self.sdf_points)
 
         #formats distances from 1D to 3D array as well as changing the sign
         count = 0 
         for i in range(self.resolution):
             for j in range(self.resolution):
                 for k in range(self.resolution):
-                    self.sdf_array[k][j][i] = -distances[count]
+                    self.sdf_array[k][j][i] = -self.distances[count]
                     count+=1
 
         return self.sdf_array, self.sdf_origin, self.sdf_point_spacing, self.resolution
@@ -49,7 +70,6 @@ class SDF_Generator:
        #return the origin point of the sdf which will be in the bottom corner as well as our sdf dimensions
        sdf_origin = [-sdf_length/2, -sdf_length/2, -sdf_length/2]
        sdf_dimensions = [sdf_length, sdf_length, sdf_length]
-       print(self.mesh.bounds)
 
        return sdf_origin, sdf_dimensions
        
@@ -70,6 +90,27 @@ class SDF_Generator:
 
         return sdf_points
         
+
+    #TODO change to cpickle for better performance
+    def create_sdf_file(self, file_name): 
+        #creates file
+        sdf_file = open(file_name, "wb")
+
+        #stores properties in dictionary
+        sdf_properties = {} 
+        sdf_properties["resolution"] = self.resolution
+        sdf_properties["padding"] = self.padding
+        sdf_properties["sdf_point_spacing"] = self.sdf_point_spacing
+        sdf_properties["sdf_array"] = self.sdf_array
+        sdf_properties["sdf_points"] = self.sdf_points
+        sdf_properties["sdf_origin"] = self.sdf_origin
+
+        #creates pickle file and closes it
+        pickle.dump(sdf_properties, sdf_file)
+        sdf_file.close()
+        
+
+
     #uses trilinear interpolation to interpolate sdf value from given point
     def interpolate_sdf_from_point(self, given_point):
         x_given = given_point[0]
@@ -86,7 +127,6 @@ class SDF_Generator:
             return -1
         if x_sdf <= 0 or y_sdf <= 0 or z_sdf <= 0:
             return -1
-
 
         #used equation and format from wikipedia article on trilinear interpolation if you wish to look at the math
         x_distance = (x_given - (x_sdf*self.sdf_point_spacing + self.sdf_origin[0])) / (((x_sdf+1)*self.sdf_point_spacing + self.sdf_origin[0]) - (x_sdf*self.sdf_point_spacing + self.sdf_origin[0]))
@@ -116,4 +156,67 @@ class SDF_Generator:
 
         return C
 
+
+    def visualize_sdf(self, mesh=False, user_points=None):
+
+        #vizualizes user points if given
+        if(user_points != None):
+            user_point_colors = [[0,0,0,255]]*len(user_points)
+            user_point_cloud = trimesh.points.PointCloud(user_points, user_point_colors)
+        else:
+            user_point_cloud = None
+
+
+        #sets colors of all sdf points and turns them into a point cloud
+        point_colors = [[102,178,255,100]]*len(self.sdf_points)
+
+        #vizualizes mesh with sdf around it
+        if(mesh == True):
+            for i in range(len(self.sdf_points)):
+                #sets up axis
+                if(self.sdf_points[i][1] == self.sdf_origin[0] and self.sdf_points[i][2] == self.sdf_origin[0]):
+                    point_colors[i] = [255,0,0,255]
+                
+                elif(self.sdf_points[i][0] == self.sdf_origin[0] and self.sdf_points[i][1] == self.sdf_origin[0]):
+                    point_colors[i] = [0,0,255,255]
+               
+                elif(self.sdf_points[i][2] == self.sdf_origin[0] and self.sdf_points[i][0] == self.sdf_origin[0]):
+                    point_colors[i] = [0,255,0,255]
+
+            point_cloud = trimesh.points.PointCloud(self.sdf_points, point_colors)
+            #self.mesh.visual.face_colors = [100, 100, 100, 100]
+            scene = trimesh.Scene([point_cloud, self.mesh, user_point_cloud])
+
+        #vizualizes sdf points only with respective colors
+        else:
+            
+            for i in range(len(self.sdf_points)):
+
+                #gets correct index for NXNXN array of sdf values from N array
+                index_total = i
+                z = min(self.resolution, i // self.resolution**2)
+                index_total -= z * self.resolution**2
+                y = min(self.resolution, index_total // self.resolution) 
+                index_total -= y * self.resolution
+                x = index_total // 1
+
+                #vizualizes any points witihn object in red
+                if(self.sdf_array[x][y][z] < 0 and self.sdf_array[x][y][z] != -1):
+                    point_colors[i] = [255,0,0,255]
+
+                #sets up axis
+                elif(self.sdf_points[i][1] == self.sdf_origin[0] and self.sdf_points[i][2] == self.sdf_origin[0]):
+                    point_colors[i] = [255,0,0,255]
+                
+                elif(self.sdf_points[i][0] == self.sdf_origin[0] and self.sdf_points[i][1] == self.sdf_origin[0]):
+                    point_colors[i] = [0,0,255,255]
+               
+                elif(self.sdf_points[i][2] == self.sdf_origin[0] and self.sdf_points[i][0] == self.sdf_origin[0]):
+                    point_colors[i] = [0,255,0,255]
+
+            point_cloud = trimesh.points.PointCloud(self.sdf_points, point_colors)
+            scene = trimesh.Scene([point_cloud, user_point_cloud])
+
+        #renders scene
+        (scene).show(smooth=False)
 

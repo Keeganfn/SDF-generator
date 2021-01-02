@@ -1,6 +1,28 @@
 # SDF-generator
-Generates a signed distance field over the volume of a cube for a .obj mesh file using trimesh. Intended for use in the hand simulator collisions and distance querys. Also provides a trilinear interpolation function for a given point.
+Generates a signed distance field over the bounding box of a .obj mesh file using trimesh. Also allows you to save generated SDF's to pickle files, to perform trilinear interpolation of a given point and to vizualize final SDF.
 
 
-TODO:
-Currently is set up as a class, need to add the ability to save the 3d SDF array to a file and a command line interface. Also need to adjust the way the extents are found as it could be an issue for irregular objects.
+Intended for use in hand simulator collision detections and distance querys. 
+
+
+### Dependencies:
+Requires trimesh, libspatialindex, Rtree and pyrender for full functionality.
+```
+pip3 install trimesh
+pip3 install pyrender
+sudo apt install libspatialindex-dev
+pip3 install Rtree
+```
+
+###
+
+
+### TODO:
+
+Change over to cpickle for better performance
+
+Restructure class to make a little more sense with pickle additions and clean things up
+
+Possibly change the way bounds are calculated need to test and see if weird behavior for strange meshes occur
+
+
