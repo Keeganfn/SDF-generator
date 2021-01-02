@@ -175,6 +175,7 @@ class SDF_Generator:
         #vizualizes mesh with sdf around it
         if(mesh == True):
             for i in range(len(self.sdf_points)):
+                #sets up axis
                 if(self.sdf_points[i][1] == self.sdf_origin[0] and self.sdf_points[i][2] == self.sdf_origin[0]):
                     point_colors[i] = [255,0,0,255]
                 
@@ -185,15 +186,27 @@ class SDF_Generator:
                     point_colors[i] = [0,255,0,255]
 
             point_cloud = trimesh.points.PointCloud(self.sdf_points, point_colors)
-            self.mesh.visual.face_colors = [100, 100, 100, 100]
+            #self.mesh.visual.face_colors = [100, 100, 100, 100]
             scene = trimesh.Scene([point_cloud, self.mesh, user_point_cloud])
 
         #vizualizes sdf points only with respective colors
         else:
+            
             for i in range(len(self.sdf_points)):
-                if(-self.distances[i] < 0 and -self.distances[i] != -1):
+
+                #gets correct index for NXNXN array of sdf values from N array
+                index_total = i
+                z = min(self.resolution, i // self.resolution**2)
+                index_total -= z * self.resolution**2
+                y = min(self.resolution, index_total // self.resolution) 
+                index_total -= y * self.resolution
+                x = index_total // 1
+
+                #vizualizes any points witihn object in red
+                if(self.sdf_array[x][y][z] < 0 and self.sdf_array[x][y][z] != -1):
                     point_colors[i] = [255,0,0,255]
 
+                #sets up axis
                 elif(self.sdf_points[i][1] == self.sdf_origin[0] and self.sdf_points[i][2] == self.sdf_origin[0]):
                     point_colors[i] = [255,0,0,255]
                 
